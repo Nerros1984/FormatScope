@@ -1,12 +1,10 @@
-from scraping.teletexto import obtener_desde_teletexto
-import pandas as pd
-
 def obtener_parrilla_web(canal: str) -> pd.DataFrame:
-    """
-    Intenta obtener la parrilla televisiva del canal especificado usando Teletexto.
-    Si falla, devuelve un DataFrame vacío con una fila de error.
-    """
     df = obtener_desde_teletexto(canal)
+
+    columnas = [
+        "fecha", "día_semana", "hora", "programa", "canal", "franja",
+        "categoría", "tipo", "logotipo", "sinopsis", "url"
+    ]
 
     if df.empty:
         return pd.DataFrame([{
@@ -21,6 +19,6 @@ def obtener_parrilla_web(canal: str) -> pd.DataFrame:
             "logotipo": "",
             "sinopsis": "",
             "url": ""
-        }])
+        }], columns=columnas)
 
     return df
