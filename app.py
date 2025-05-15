@@ -63,4 +63,4 @@ if st.button("📦 Generar histórico completo"):
         csv = df_historico.to_csv(index=False).encode("utf-8")
         st.download_button("💾 Descargar CSV", data=csv, file_name="historico_movistarplus.csv", mime="text/csv")
     else:
-        st.warning("No se pudieron obtener datos para ningún canal en el rango 
+        st.warning("No se pudieron obtener datos para ningún canal en el rango.") 
