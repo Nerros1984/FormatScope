@@ -1,5 +1,6 @@
 import streamlit as st
 import pandas as pd
+from scraping.movistarplus import obtener_desde_movistarplus
 from scraping.programacion import obtener_parrilla_web
 
 st.set_page_config(page_title="FormatScope", page_icon="📺")
@@ -29,3 +30,37 @@ if uploaded_file:
     df_manual = pd.read_csv(uploaded_file)
     st.success("CSV cargado correctamente.")
     st.dataframe(df_manual)
+
+st.markdown("## 📅 Generar histórico de programación (±7 días)")
+if st.button("📦 Generar histórico completo"):
+    canales = [
+        "La 1", "La 2", "Antena 3", "Cuatro", "Telecinco", "La Sexta",
+        "Canal Sur", "TV3", "ETB 2", "TVG", "Telemadrid"
+    ]
+    hoy = datetime.now().date()
+    rango_dias = range(-7, 7)
+
+    registros = []
+    progreso = st.progress(0)
+    total = len(canales) * len(rango_dias)
+    paso = 0
+
+    for canal in canales:
+        for delta in rango_dias:
+            fecha = (hoy + timedelta(days=delta)).strftime("%Y-%m-%d")
+            st.write(f"🔍 Obteniendo {canal} - {fecha}")
+            df = obtener_desde_movistarplus(canal, fecha)
+            if not df.empty:
+                registros.append(df)
+            paso += 1
+            progreso.progress(paso / total)
+
+    if registros:
+        df_historico = pd.concat(registros, ignore_index=True)
+        st.success(f"✅ Histórico generado con {len(df_historico)} registros.")
+        st.dataframe(df_historico)
+
+        csv = df_historico.to_csv(index=False).encode("utf-8")
+        st.download_button("💾 Descargar CSV", data=csv, file_name="historico_movistarplus.csv", mime="text/csv")
+    else:
+        st.warning("No se pudieron obtener datos para ningún canal en el rango 
