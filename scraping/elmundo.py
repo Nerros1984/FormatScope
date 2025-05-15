@@ -4,16 +4,14 @@ import pandas as pd
 from datetime import datetime
 
 SLUGS_ELMUNDO = {
-    "La 1": "la-1",
-    "La 2": "la-2",
-    "Antena 3": "antena-3",
-    "Cuatro": "cuatro",
-    "Telecinco": "telecinco",
-    "La Sexta": "la-sexta"
+    "La 1": "la-1"
 }
 
 def asignar_franja(hora):
-    h = int(hora.split(":")[0])
+    try:
+        h = int(hora.split(":")[0])
+    except:
+        return "desconocida"
     if h < 6: return "madrugada"
     elif h < 12: return "morning"
     elif h < 14: return "midday"
@@ -35,25 +33,21 @@ def obtener_desde_elmundo(canal):
         return pd.DataFrame()
 
     soup = BeautifulSoup(r.text, "html.parser")
-
-    # 🔍 Mostrar parte del HTML recibido
-    print(f"DEBUG HTML recibido de {url}:\n")
-    print(soup.prettify()[:1000])  # solo los primeros 1000 caracteres
-
-    # 🔍 Intentamos obtener los bloques que contienen los programas
-    bloques = soup.select(".ue-c-article__body ul li")
-    print(f"DEBUG cantidad de bloques encontrados: {len(bloques)}")
+    bloques = soup.select("li")
 
     datos = []
     hoy = datetime.now().strftime("%Y-%m-%d")
     dia_semana = datetime.now().strftime("%A")
 
     for bloque in bloques:
-        hora_tag = bloque.select_one("strong")
-        programa_tag = bloque.select_one("span")
-        if hora_tag and programa_tag:
-            hora = hora_tag.text.strip().replace("h", ":00")
+        hora_raw = bloque.find(text=lambda t: t and ":" in t and len(t.strip()) <= 5)
+        programa_tag = bloque.select_one("p.nombre-programa a")
+        sinopsis_tag = bloque.select_one("div.sinopsis-programa")
+
+        if hora_raw and programa_tag:
+            hora = hora_raw.strip()
             programa = programa_tag.text.strip()
+            sinopsis = sinopsis_tag.text.strip() if sinopsis_tag else ""
             datos.append({
                 "fecha": hoy,
                 "día_semana": dia_semana,
@@ -64,7 +58,7 @@ def obtener_desde_elmundo(canal):
                 "categoría": "desconocido",
                 "tipo": "desconocido",
                 "logotipo": "",
-                "sinopsis": ""
+                "sinopsis": sinopsis
             })
 
     return pd.DataFrame(datos)
