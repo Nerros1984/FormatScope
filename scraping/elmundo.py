@@ -1,103 +1,56 @@
+# scraping/elmundo.py
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
+from bs4 import BeautifulSoup
 from datetime import datetime
-import unicodedata
 
-# Mapa para traducir nombres de días al español
-dias_semana_es = {
-    'Monday': 'Lunes',
-    'Tuesday': 'Martes',
-    'Wednesday': 'Miércoles',
-    'Thursday': 'Jueves',
-    'Friday': 'Viernes',
-    'Saturday': 'Sábado',
-    'Sunday': 'Domingo'
+CANAL_SLUGS_ELMUNDO = {
+    "La 1": "la-1",
+    "La 2": "la-2",
+    "Antena 3": "antena-3",
+    "Cuatro": "cuatro",
+    "Telecinco": "telecinco",
+    "La Sexta": "la-sexta"
 }
 
-def obtener_desde_elmundo(canal: str, fecha: str = None) -> pd.DataFrame:
-    canal_slug = {
-        "La 1": "la-1",
-        "La 2": "la-2",
-        "Antena 3": "antena-3",
-        "Cuatro": "cuatro",
-        "Telecinco": "telecinco",
-        "La Sexta": "la-sexta",
-    }.get(canal, None)
+def obtener_desde_elmundo(canal: str, fecha: str) -> pd.DataFrame:
+    slug = CANAL_SLUGS_ELMUNDO.get(canal)
+    if not slug:
+        return pd.DataFrame()
 
-    if canal_slug is None:
-        return pd.DataFrame(columns=["fecha", "día_semana", "hora", "programa", "canal", "franja", "categoría", "tipo", "logotipo", "sinopsis", "url"])
-
-    url = f"https://www.elmundo.es/television/programacion-tv/{canal_slug}.html"
+    url = f"https://www.elmundo.es/television/programacion-tv/{slug}.html"
     try:
-        res = requests.get(url, timeout=10)
-        soup = BeautifulSoup(res.text, "html.parser")
+        response = requests.get(url, timeout=10)
+        if response.status_code != 200:
+            return pd.DataFrame()
 
-        bloques = soup.find_all("li", class_="hora-emision")
-        filas = []
+        soup = BeautifulSoup(response.text, 'html.parser')
+        bloques = soup.select("div[data-el='bloque-programa']")
 
+        if not bloques:
+            return pd.DataFrame()
+
+        datos = []
         for bloque in bloques:
-            hora_tag = bloque.find("time")
-            nombre_tag = bloque.find("a")
-            categoria_tag = bloque.find("strong")
-            sinopsis_tag = bloque.find_next_sibling("p")
+            hora = bloque.select_one(".hour")
+            genero = bloque.select_one(".category")
+            nombre = bloque.select_one(".title")
+            sinopsis = bloque.select_one(".description")
 
-            if not hora_tag or not nombre_tag:
-                continue
-
-            hora = hora_tag.text.strip()
-            programa = nombre_tag.text.strip()
-            url_programa = nombre_tag["href"] if nombre_tag.has_attr("href") else ""
-            categoria = categoria_tag.text.strip() if categoria_tag else ""
-            sinopsis = sinopsis_tag.text.strip() if sinopsis_tag else ""
-
-            # Datos de contexto
-            hoy = datetime.now().date()
-            dia_semana = dias_semana_es.get(hoy.strftime('%A'), hoy.strftime('%A'))
-
-            fila = {
-                "fecha": hoy.isoformat(),
-                "día_semana": dia_semana,
-                "hora": hora,
-                "programa": programa,
+            datos.append({
+                "fecha": fecha,
+                "día_semana": datetime.strptime(fecha, "%Y-%m-%d").strftime("%A"),
+                "hora": hora.text.strip() if hora else "",
+                "programa": nombre.text.strip() if nombre else "",
                 "canal": canal,
-                "franja": "",
-                "categoría": categoria,
+                "franja": "",  # Puedes derivar de hora si lo necesitas
+                "categoría": genero.text.strip() if genero else "",
                 "tipo": "",
                 "logotipo": "",
-                "sinopsis": sinopsis,
-                "url": url_programa,
-            }
-            filas.append(fila)
-
-        if not filas:
-            return pd.DataFrame([{
-                "fecha": datetime.now().date().isoformat(),
-                "día_semana": dias_semana_es.get(datetime.now().strftime('%A'), datetime.now().strftime('%A')),
-                "hora": "Sin datos",
-                "programa": "No se pudo obtener programación",
-                "canal": canal,
-                "franja": "",
-                "categoría": "",
-                "tipo": "",
-                "logotipo": "",
-                "sinopsis": "",
+                "sinopsis": sinopsis.text.strip() if sinopsis else "",
                 "url": ""
-            }])
+            })
 
-        return pd.DataFrame(filas)
-
-    except Exception as e:
-        return pd.DataFrame([{
-            "fecha": datetime.now().date().isoformat(),
-            "día_semana": dias_semana_es.get(datetime.now().strftime('%A'), datetime.now().strftime('%A')),
-            "hora": "Sin datos",
-            "programa": f"Error al acceder a elmundo.es: {str(e)}",
-            "canal": canal,
-            "franja": "",
-            "categoría": "",
-            "tipo": "",
-            "logotipo": "",
-            "sinopsis": "",
-            "url": ""
-        }])
+        return pd.DataFrame(datos)
+    except Exception:
+        return pd.DataFrame()
