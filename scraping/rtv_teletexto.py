@@ -29,6 +29,15 @@ def obtener_desde_rtv_teletexto(canal):
                 partes = linea.split(" ", 1)
                 hora = partes[0]
                 programa = partes[1] if len(partes) > 1 else ""
-                datos.append({"hora": hora, "programa": programa.strip(), "canal": canal})
+                datos.append({
+                    "fecha": "",
+                    "día_semana": "",
+                    "hora": hora,
+                    "programa": programa.strip(),
+                    "canal": canal,
+                    "franja": "",
+                    "categoría": "desconocido",
+                    "logotipo": ""
+                })
 
     return pd.DataFrame(datos)
