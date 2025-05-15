@@ -1,5 +1,9 @@
 import requests
 from bs4 import BeautifulSoup
+from scraping.rtv_teletexto import obtener_desde_rtv_teletexto
+from scraping.teletexto_com import obtener_desde_teletexto_com
+from scraping.fallback import plantilla_vacia
+
 import pandas as pd
 
 URLS = {
@@ -15,25 +19,16 @@ URLS = {
     "Telemadrid": "https://www.lavanguardia.com/television/programacion-tv/telemadrid",
 }
 
+from scraping.rtv_teletexto import obtener_desde_rtv_teletexto
+from scraping.teletexto_com import obtener_desde_teletexto_com
+from scraping.fallback import plantilla_vacia
+
 def obtener_parrilla_web(canal):
-    url = URLS.get(canal)
-    if not url:
-        return pd.DataFrame(columns=["hora", "programa", "canal"])
-
-    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-    soup = BeautifulSoup(res.text, "html.parser")
-
-    bloques = soup.find_all("li", class_="tv-listing__item")
-
-    datos = []
-    for bloque in bloques:
-        hora_tag = bloque.find("span", class_="tv-listing__hour")
-        titulo_tag = bloque.find("span", class_="tv-listing__title")
-        if hora_tag and titulo_tag:
-            datos.append({
-                "hora": hora_tag.text.strip(),
-                "programa": titulo_tag.text.strip(),
-                "canal": canal
-            })
-
-    return pd.DataFrame(datos)
+    for extractor in [obtener_desde_rtv_teletexto, obtener_desde_teletexto_com]:
+        try:
+            df = extractor(canal)
+            if not df.empty:
+                return df
+        except Exception as e:
+            print(f"Error en extractor {extractor.__name__}: {e}")
+    return plantilla_vacia(canal)
