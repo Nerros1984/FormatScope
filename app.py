@@ -1,10 +1,13 @@
 # app.py
-import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
+
+import os
+import sys
 from scraping.programacion import obtener_parrilla_web, obtener_desde_movistarplus
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), 'analisis')))
 from informes_canal import generar_informe_canal
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
 
 st.set_page_config(page_title="FormatScope", page_icon="📺")
 st.title("📺 FormatScope: Evaluador Inteligente de Parrilla Televisiva")
