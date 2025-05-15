@@ -2,7 +2,6 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 
-# URL base (usamos La Vanguardia, fácil de scrapear)
 URLS = {
     "Antena 3": "https://www.lavanguardia.com/television/programacion-tv/antena-3",
     "La 1": "https://www.lavanguardia.com/television/programacion-tv/la-1",
@@ -20,20 +19,20 @@ def obtener_parrilla_web(canal):
     url = URLS.get(canal)
     if not url:
         return pd.DataFrame(columns=["hora", "programa", "canal"])
-    
-    res = requests.get(url)
+
+    res = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
     soup = BeautifulSoup(res.text, "html.parser")
 
-    bloques = soup.select(".tv-listing__hour-block")
+    bloques = soup.find_all("li", class_="tv-listing__item")
 
     datos = []
     for bloque in bloques:
-        hora = bloque.select_one(".tv-listing__hour")
-        programa = bloque.select_one(".tv-listing__title")
-        if hora and programa:
+        hora_tag = bloque.find("span", class_="tv-listing__hour")
+        titulo_tag = bloque.find("span", class_="tv-listing__title")
+        if hora_tag and titulo_tag:
             datos.append({
-                "hora": hora.get_text(strip=True),
-                "programa": programa.get_text(strip=True),
+                "hora": hora_tag.text.strip(),
+                "programa": titulo_tag.text.strip(),
                 "canal": canal
             })
 
