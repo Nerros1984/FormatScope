@@ -2,5 +2,5 @@ import pandas as pd
 
 def plantilla_vacia(canal):
     return pd.DataFrame([
-        {"hora": "Sin datos", "programa": "No se pudo obtener programación", "canal": canal}
+        {"fecha": "", "día_semana": "", "hora": "", "programa": "Sin datos", "canal": canal, "franja": "", "categoría": "", "logotipo": ""}
     ])
