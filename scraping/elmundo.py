@@ -31,10 +31,18 @@ def obtener_desde_elmundo(canal):
     url = f"https://www.elmundo.es/television/programacion-tv/{slug}.html"
     r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
     if r.status_code != 200:
+        print(f"[ERROR] Código {r.status_code} al acceder a {url}")
         return pd.DataFrame()
 
     soup = BeautifulSoup(r.text, "html.parser")
+
+    # 🔍 Mostrar parte del HTML recibido
+    print(f"DEBUG HTML recibido de {url}:\n")
+    print(soup.prettify()[:1000])  # solo los primeros 1000 caracteres
+
+    # 🔍 Intentamos obtener los bloques que contienen los programas
     bloques = soup.select(".ue-c-article__body ul li")
+    print(f"DEBUG cantidad de bloques encontrados: {len(bloques)}")
 
     datos = []
     hoy = datetime.now().strftime("%Y-%m-%d")
@@ -44,7 +52,7 @@ def obtener_desde_elmundo(canal):
         hora_tag = bloque.select_one("strong")
         programa_tag = bloque.select_one("span")
         if hora_tag and programa_tag:
-            hora = hora_tag.text.strip().replace("h", ":00")  # ejemplo 08h → 08:00
+            hora = hora_tag.text.strip().replace("h", ":00")
             programa = programa_tag.text.strip()
             datos.append({
                 "fecha": hoy,
