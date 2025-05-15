@@ -1,0 +1,34 @@
+import requests
+from bs4 import BeautifulSoup
+import pandas as pd
+
+MAPA_RTVE = {
+    "La 1": "401",
+    "La 2": "402",
+    "Clan": "403",
+    "Teledeporte": "404",
+    "Canal 24h": "405"
+}
+
+def obtener_desde_rtv_teletexto(canal):
+    pagina = MAPA_RTVE.get(canal)
+    if not pagina:
+        return pd.DataFrame()
+
+    url = f"https://www.rtve.es/teletexto/{pagina}/"
+    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
+    soup = BeautifulSoup(r.text, "html.parser")
+
+    bloques = soup.find_all("pre")
+    datos = []
+
+    for bloque in bloques:
+        lineas = bloque.text.strip().split("\n")
+        for linea in lineas:
+            if ":" in linea:
+                partes = linea.split(" ", 1)
+                hora = partes[0]
+                programa = partes[1] if len(partes) > 1 else ""
+                datos.append({"hora": hora, "programa": programa.strip(), "canal": canal})
+
+    return pd.DataFrame(datos)

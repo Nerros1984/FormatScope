@@ -1,0 +1,6 @@
+import pandas as pd
+
+def plantilla_vacia(canal):
+    return pd.DataFrame([
+        {"hora": "Sin datos", "programa": "No se pudo obtener programación", "canal": canal}
+    ])
