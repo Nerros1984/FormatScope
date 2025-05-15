@@ -11,6 +11,7 @@ canal = st.sidebar.selectbox("Selecciona un canal", canales)
 
 if st.sidebar.button("🔍 Analizar programación"):
     df = obtener_parrilla_web(canal)
+    st.write("Contenido del DataFrame devuelto:", df)
     if df.empty:
         st.error(f"No se pudo obtener la programación para {canal}.")
     else:
