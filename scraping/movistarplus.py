@@ -1,59 +1,64 @@
-# scraping/movistarplus.py
-
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime
+from utils.helpers import get_day_name_es
 
-CANAL_IFRAME_SLUGS = {
+# Slugs válidos para Movistar+
+MOVISTARPLUS_SLUGS = {
     "La 1": "tve",
     "La 2": "la2",
     "Antena 3": "a3",
     "Cuatro": "c4",
     "Telecinco": "t5",
-    "La Sexta": "sexta"
+    "La Sexta": "sexta",
+    "Canal Sur": "canalsur",
+    "TV3": "tv3",
+    "ETB 2": "etb2",
+    "TVG": "tvg",
+    "Telemadrid": "telemadrid"
 }
 
 def obtener_desde_movistarplus(canal, fecha=None):
-    slug = CANAL_IFRAME_SLUGS.get(canal)
+    slug = MOVISTARPLUS_SLUGS.get(canal)
     if not slug:
         return pd.DataFrame()
 
-    url = f"https://static.movistarplus.es/recorte/movistarplus/{slug}/programacion.html"
+    if not fecha:
+        fecha = datetime.now().strftime("%Y-%m-%d")
+
+    url = f"https://www.movistarplus.es/programacion-tv/{slug}/{fecha}"
+    headers = {"User-Agent": "Mozilla/5.0"}
+
     try:
-        res = requests.get(url, timeout=10)
-        res.raise_for_status()
+        response = requests.get(url, headers=headers)
+        response.raise_for_status()
     except Exception:
         return pd.DataFrame()
 
-    soup = BeautifulSoup(res.text, "html.parser")
-    bloques = soup.find_all("div", class_="bloque")
+    soup = BeautifulSoup(response.text, "html.parser")
+    bloques = soup.select(".bloque-programa")
+    if not bloques:
+        return pd.DataFrame()
 
     registros = []
-    hoy = datetime.now().date()
-    dia_semana = hoy.strftime("%A")
-
     for bloque in bloques:
-        hora = bloque.find("div", class_="hora")
-        titulo = bloque.find("div", class_="titulo")
-        categoria = bloque.find("div", class_="categoria")
-        tipo = categoria.text if categoria else ""
-
-        if not hora or not titulo:
-            continue
+        hora = bloque.select_one(".hora")
+        titulo = bloque.select_one(".titulo")
+        categoria = bloque.select_one(".categoria")
 
         registros.append({
-            "fecha": str(hoy),
-            "día_semana": dia_semana,
-            "hora": hora.text.strip(),
-            "programa": titulo.text.strip(),
+            "fecha": fecha,
+            "día_semana": get_day_name_es(fecha),
+            "hora": hora.get_text(strip=True) if hora else "",
+            "programa": titulo.get_text(strip=True) if titulo else "",
             "canal": canal,
-            "franja": "",
-            "categoría": tipo,
+            "franja": "",  # Opcional, puedes calcular según la hora
+            "categoría": categoria.get_text(strip=True).capitalize() if categoria else "",
             "tipo": "",
             "logotipo": "",
             "sinopsis": "",
-            "url": ""
+            "url": url
         })
 
     return pd.DataFrame(registros)
