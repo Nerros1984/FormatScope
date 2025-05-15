@@ -1,59 +1,64 @@
-# scraping/tvguia.py
-
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 from datetime import datetime
+from utils.helpers import get_day_name_es
 
-TVGUIA_URLS = {
-    "La 1": "https://tvguia.es/tv/programacion-la-1",
-    "La 2": "https://tvguia.es/tv/programacion-la-2",
-    "Antena 3": "https://tvguia.es/tv/programacion-antena-3",
-    "Cuatro": "https://tvguia.es/tv/programacion-cuatro",
-    "Telecinco": "https://tvguia.es/tv/programacion-telecinco",
-    "La Sexta": "https://tvguia.es/tv/programacion-la-sexta"
-    # Puedes ampliar con más canales si ves su patrón
+URL_BASE = "https://tvguia.es/tv/programacion-{slug}"
+
+TVGUIA_SLUGS = {
+    "La 1": "la-1",
+    "La 2": "la-2",
+    "Antena 3": "antena-3",
+    "Cuatro": "cuatro",
+    "Telecinco": "telecinco",
+    "La Sexta": "la-sexta",
+    "Canal Sur": "canalsur-andalucia",
+    "TV3": "tv3-cataluna",
+    "ETB 2": "etb-2",
+    "TVG": "tvg",
+    "Telemadrid": "telemadrid"
 }
 
 def obtener_desde_tvguia(canal):
-    url = TVGUIA_URLS.get(canal)
-    if not url:
+    slug = TVGUIA_SLUGS.get(canal)
+    if not slug:
         return pd.DataFrame()
 
+    url = URL_BASE.format(slug=slug)
+    headers = {"User-Agent": "Mozilla/5.0"}
     try:
-        response = requests.get(url, headers={"User-Agent": "Mozilla/5.0"})
-        response.raise_for_status()
+        res = requests.get(url, headers=headers, timeout=10)
+        res.raise_for_status()
     except Exception:
         return pd.DataFrame()
 
-    soup = BeautifulSoup(response.text, "html.parser")
-    filas = soup.select("table tbody tr")
+    soup = BeautifulSoup(res.text, "html.parser")
+    filas = soup.select("div.programacion div.row")
+
     if not filas:
         return pd.DataFrame()
 
     registros = []
     for fila in filas:
-        celdas = fila.find_all("td")
-        if len(celdas) >= 2:
-            hora = celdas[0].get_text(strip=True)
-            nombre_elem = celdas[1].find("a")
-            nombre = nombre_elem.get_text(strip=True) if nombre_elem else ""
-            categoria_elem = celdas[1].find("span")
-            categoria = categoria_elem.get_text(strip=True).capitalize() if categoria_elem else ""
-            sinopsis = celdas[1].get_text(strip=True).replace(nombre, "").replace(categoria, "").strip()
-
+        try:
+            hora = fila.select_one("div.hora").text.strip()
+            titulo = fila.select_one("div.titulo").text.strip()
+            categoria = fila.select_one("div.categoria").text.strip().capitalize()
             registros.append({
-                "fecha": datetime.now().strftime("%Y-%m-%d"),
-                "día_semana": datetime.now().strftime("%A"),
+                "fecha": datetime.now().date().isoformat(),
+                "día_semana": get_day_name_es(datetime.now().date().isoformat()),
                 "hora": hora,
-                "programa": nombre,
+                "programa": titulo,
                 "canal": canal,
-                "franja": "",  # opcional
+                "franja": "",
                 "categoría": categoria,
                 "tipo": "",
                 "logotipo": "",
-                "sinopsis": sinopsis,
+                "sinopsis": "",
                 "url": url
             })
+        except Exception:
+            continue
 
     return pd.DataFrame(registros)
