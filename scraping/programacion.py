@@ -1,26 +1,26 @@
-
-import pandas as pd
 from scraping.teletexto import obtener_desde_teletexto
+import pandas as pd
 
-def obtener_parrilla_web(canal: str, fecha: str = None) -> pd.DataFrame:
+def obtener_parrilla_web(canal: str) -> pd.DataFrame:
     """
-    Intenta obtener programación desde Teletexto.com.
+    Intenta obtener la parrilla televisiva del canal especificado usando Teletexto.
+    Si falla, devuelve un DataFrame vacío con una fila de error.
     """
-    df = obtener_desde_teletexto(canal, fecha)
-    if not df.empty:
-        return df
+    df = obtener_desde_teletexto(canal)
 
-    # Si ninguna fuente devuelve datos válidos
-    return pd.DataFrame([{
-        "fecha": fecha or pd.Timestamp.now().date(),
-        "día_semana": pd.Timestamp.now().day_name(locale='es_ES.utf8'),
-        "hora": "Sin datos",
-        "programa": "No se pudo obtener programación",
-        "canal": canal,
-        "franja": "",
-        "categoría": "",
-        "tipo": "",
-        "logotipo": "",
-        "sinopsis": "",
-        "url": ""
-    }])
+    if df.empty:
+        return pd.DataFrame([{
+            "fecha": pd.Timestamp.today().date(),
+            "día_semana": "Sin datos",
+            "hora": "Sin datos",
+            "programa": "No se pudo obtener programación",
+            "canal": canal,
+            "franja": "",
+            "categoría": "",
+            "tipo": "",
+            "logotipo": "",
+            "sinopsis": "",
+            "url": ""
+        }])
+
+    return df
