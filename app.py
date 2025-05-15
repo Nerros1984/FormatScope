@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from scraping.programacion import obtener_parrilla_web, obtener_desde_movistarplus
-import helpers
+from utils.helpers import get_day_name_es
 
 st.set_page_config(page_title="FormatScope", page_icon="📺")
 st.title("📺 FormatScope: Evaluador Inteligente de Parrilla Televisiva")
