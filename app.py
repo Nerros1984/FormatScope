@@ -1,8 +1,9 @@
+# app.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from scraping.programacion import obtener_parrilla_web, obtener_desde_movistarplus
-from utils.helpers import get_day_name_es
+from analisis.informes_canal import generar_informe_canal
 
 st.set_page_config(page_title="FormatScope", page_icon="📺")
 st.title("📺 FormatScope: Evaluador Inteligente de Parrilla Televisiva")
@@ -32,12 +33,21 @@ if st.sidebar.button("🔍 Buscar programación"):
         st.success(f"Parrilla cargada automáticamente para {canal}")
     st.dataframe(df)
 
+    # Mostrar informe
+    if not df.empty and "programa" in df.columns:
+        st.markdown("---")
+        st.markdown("## 🧠 Informe de Programación")
+        st.markdown(generar_informe_canal(df, canal))
+
 st.markdown("### 🗃️ O sube manualmente un CSV de parrilla")
 uploaded_file = st.file_uploader("Drag and drop file here", type=["csv"])
 if uploaded_file:
     df_manual = pd.read_csv(uploaded_file)
     st.success("CSV cargado correctamente.")
     st.dataframe(df_manual)
+    st.markdown("---")
+    st.markdown("## 🧠 Informe de Programación")
+    st.markdown(generar_informe_canal(df_manual, df_manual["canal"].iloc[0]))
 
 st.markdown("## 📅 Generar histórico de programación (±7 días)")
 if st.button("📦 Generar histórico completo"):
