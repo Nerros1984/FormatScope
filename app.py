@@ -1,8 +1,7 @@
-# app.py
 import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
-from scraping.elmundo import obtener_desde_elmundo
+from scraping.programacion import obtener_parrilla_web, obtener_desde_movistarplus
 
 st.set_page_config(page_title="FormatScope", page_icon="📺")
 st.title("📺 FormatScope: Evaluador Inteligente de Parrilla Televisiva")
@@ -18,22 +17,15 @@ else:
 canal = st.sidebar.selectbox("Selecciona canal", canales)
 
 if st.sidebar.button("🔍 Buscar programación"):
-    hoy = datetime.now().strftime("%Y-%m-%d")
-    df = obtener_desde_elmundo(canal, hoy)
+    df = obtener_parrilla_web(canal)
     if df.empty or "hora" not in df.columns:
         st.error(f"No se pudo obtener la programación para {canal}.")
         df = pd.DataFrame([{
-            "fecha": hoy,
-            "día_semana": datetime.now().strftime("%A"),
+            "fecha": datetime.today().date().isoformat(),
+            "día_semana": datetime.today().strftime('%A'),
             "hora": "Sin datos",
             "programa": "No se pudo obtener programación",
-            "canal": canal,
-            "franja": "",
-            "categoría": "",
-            "tipo": "",
-            "logotipo": "",
-            "sinopsis": "",
-            "url": ""
+            "canal": canal
         }])
     else:
         st.success(f"Parrilla cargada automáticamente para {canal}")
@@ -48,22 +40,23 @@ if uploaded_file:
 
 st.markdown("## 📅 Generar histórico de programación (±7 días)")
 if st.button("📦 Generar histórico completo"):
-    canales = [
-        "La 1", "La 2", "Antena 3", "Cuatro", "Telecinco", "La Sexta"
+    canales_total = [
+        "La 1", "La 2", "Antena 3", "Cuatro", "Telecinco", "La Sexta",
+        "Canal Sur", "TV3", "ETB 2", "TVG", "Telemadrid"
     ]
     hoy = datetime.now().date()
     rango_dias = range(-7, 7)
 
     registros = []
     progreso = st.progress(0)
-    total = len(canales) * len(rango_dias)
+    total = len(canales_total) * len(rango_dias)
     paso = 0
 
-    for canal in canales:
+    for canal in canales_total:
         for delta in rango_dias:
             fecha = (hoy + timedelta(days=delta)).strftime("%Y-%m-%d")
             st.write(f"🔍 Obteniendo {canal} - {fecha}")
-            df = obtener_desde_elmundo(canal, fecha)
+            df = obtener_desde_movistarplus(canal, fecha)
             if not df.empty:
                 registros.append(df)
             paso += 1
@@ -75,6 +68,6 @@ if st.button("📦 Generar histórico completo"):
         st.dataframe(df_historico)
 
         csv = df_historico.to_csv(index=False).encode("utf-8")
-        st.download_button("💾 Descargar CSV", data=csv, file_name="historico_parrilla.csv", mime="text/csv")
+        st.download_button("💾 Descargar CSV", data=csv, file_name="historico_movistarplus.csv", mime="text/csv")
     else:
-        st.warning("No se pudieron obtener datos para ningún canal en el rango.")
+        st.warning("No se pudieron obtener datos para ningún canal en el rango")
