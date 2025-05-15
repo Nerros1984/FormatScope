@@ -1,11 +1,16 @@
-from datetime import datetime
 import locale
+from datetime import datetime
 
-# Día de la semana en español
-def get_day_name_es(fecha_str):
+def get_day_name_es(fecha: str) -> str:
+    """
+    Devuelve el nombre del día en español (ej: lunes, martes...) desde una fecha YYYY-MM-DD
+    """
     try:
-        locale.setlocale(locale.LC_TIME, "es_ES.utf8")
+        # Establecer idioma español
+        locale.setlocale(locale.LC_TIME, 'es_ES.UTF-8')
     except:
-        locale.setlocale(locale.LC_TIME, "es_ES")  # fallback
-    dt = datetime.strptime(fecha_str, "%Y-%m-%d")
-    return dt.strftime("%A").capitalize()
+        # Compatibilidad con sistemas que no tengan es_ES.UTF-8
+        locale.setlocale(locale.LC_TIME, 'es_ES')
+
+    fecha_dt = datetime.strptime(fecha, "%Y-%m-%d")
+    return fecha_dt.strftime("%A").capitalize()
