@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import datetime
 from utils.helpers import get_day_name_es
 
-# Slugs válidos para Movistar+
 MOVISTARPLUS_SLUGS = {
     "La 1": "tve",
     "La 2": "la2",
@@ -53,9 +52,9 @@ def obtener_desde_movistarplus(canal, fecha=None):
             "hora": hora.get_text(strip=True) if hora else "",
             "programa": titulo.get_text(strip=True) if titulo else "",
             "canal": canal,
-            "franja": "",  # Opcional, puedes calcular según la hora
+            "franja": "",        # futuro: calcular según hora
             "categoría": categoria.get_text(strip=True).capitalize() if categoria else "",
-            "tipo": "",
+            "tipo": "",          # futuro: clasificar automáticamente
             "logotipo": "",
             "sinopsis": "",
             "url": url
