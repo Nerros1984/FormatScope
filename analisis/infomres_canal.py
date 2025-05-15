@@ -3,9 +3,14 @@ from collections import Counter
 from datetime import datetime
 
 def generar_informe_canal(df, canal):
+    if df.empty or "canal" not in df.columns:
+        return f"No hay datos disponibles para {canal}."
+
     df_canal = df[df["canal"] == canal]
     if df_canal.empty:
-        return f"\n❌ No se encontraron datos para {canal}."
+        return f"No se encontraron emisiones registradas para {canal}."
+
+    # … el resto del análisis como estaba
 
     total_programas = len(df_canal)
     dias = df_canal["día_semana"].value_counts().to_dict()
