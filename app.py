@@ -12,12 +12,14 @@ client = OpenAI(api_key=api_key)
 def obtener_informacion(titulo, campo):
     prompt = f"Proporciona la {campo} del programa de televisión titulado '{titulo}'."
     try:
+        st.write(f"🔎 Buscando {campo} para: {titulo}")
         response = client.chat.completions.create(
             model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
-        return response.choices[0].message.content.strip()
+        contenido = response.choices[0].message.content.strip()
+        return contenido if contenido else f"Sin datos ({campo})"
     except Exception as e:
         return f"Error al obtener {campo}: {e}"
 
@@ -32,6 +34,29 @@ def enriquecer_datos(df):
         if pd.isna(fila.get('audiencia_media')):
             df.at[index, 'audiencia_media'] = obtener_informacion(fila['titulo'], 'audiencia media estimada')
     return df
+
+def analizar_oportunidades(df):
+    st.subheader("🔍 Análisis de oportunidades")
+    resumen = ""
+    for index, fila in df.iterrows():
+        resumen += f"- {fila['titulo']} ({fila['categoria']}): {fila.get('sinopsis', '')}\n"
+
+    prompt = (
+        "A partir de esta parrilla televisiva, sugiere líneas de contenido o formatos que podrían funcionar bien "
+        "en una televisión nacional o internacional, explicando el porqué.\n\n" + resumen
+    )
+
+    try:
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        recomendaciones = response.choices[0].message.content.strip()
+        st.markdown("### Recomendaciones de nuevos formatos")
+        st.write(recomendaciones)
+    except Exception as e:
+        st.error(f"Error al generar informe: {e}")
 
 def main():
     st.title("FormatScope - Enriquecimiento de parrilla televisiva")
@@ -60,6 +85,8 @@ def main():
                     file_name="parrillas_enriquecidas.xlsx",
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
+
+                analizar_oportunidades(df_enriquecido)
 
 if __name__ == "__main__":
     main()
