@@ -13,7 +13,7 @@ def obtener_informacion(titulo, campo):
     try:
         st.write(f"🔎 Buscando {campo} para: {titulo}")
         response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
+            model="gpt-4",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.7
         )
@@ -42,7 +42,7 @@ def analizar_oportunidades(df):
 
     prompt = (
         "A partir de esta parrilla televisiva, sugiere líneas de contenido o formatos que podrían funcionar bien "
-        "en una televisión nacional o internacional, explicando el porqué.\n\n" + resumen
+        "en una televisión nacional o internacional, comparando con tendencias actuales y explicando el porqué.\n\n" + resumen
     )
 
     try:
@@ -86,7 +86,9 @@ def main():
                     mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
                 )
 
-                analizar_oportunidades(df_enriquecido)
+        if st.button("Generar informe de oportunidades"):
+            with st.spinner("Analizando parrilla y generando recomendaciones..."):
+                analizar_oportunidades(df)
 
 if __name__ == "__main__":
     main()
