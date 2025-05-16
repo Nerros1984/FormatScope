@@ -59,7 +59,8 @@ def analizar_oportunidades(df):
         st.error(f"Error al generar informe: {e}")
 
 def main():
-    st.title("FormatScope - Enriquecimiento de parrilla televisiva")
+    st.title("📺 FormatScope")
+    st.subheader("Analiza parrillas y sugiere contenidos")
 
     archivo = st.file_uploader("Sube tu archivo 'parrillas_tv.xlsx'", type=["xlsx"])
 
