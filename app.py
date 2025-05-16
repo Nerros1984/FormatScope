@@ -4,8 +4,8 @@ import pandas as pd
 import openai
 from io import BytesIO
 
-# Clave de API (puedes cargarla desde secrets si usas Streamlit Cloud)
-openai.api_key = st.secrets["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"] if "OPENAI_API_KEY" in st.secrets else ""
+# Clave de API (usa secrets en Streamlit Cloud)
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else ""
 
 def obtener_informacion(titulo, campo):
     prompt = f"Proporciona la {campo} del programa de televisión titulado '{titulo}'."
@@ -52,8 +52,7 @@ def main():
                 output = BytesIO()
                 with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
                     df_enriquecido.to_excel(writer, index=False, sheet_name='Parrilla Enriquecida')
-                    writer.save()
-                    output.seek(0)
+                output.seek(0)
 
                 st.download_button(
                     label="Descargar archivo enriquecido",
