@@ -68,7 +68,7 @@ def main():
         st.subheader("Analiza parrillas y sugiere contenidos")
 st.subheader("Analiza parrillas y sugiere contenidos")
 st.write("Vista previa del archivo cargado:")
-        st.dataframe(df)
+st.dataframe(df)
 
         if st.button("Enriquecer datos del archivo"):
             with st.spinner("Consultando IA para completar campos..."):
