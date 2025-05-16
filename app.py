@@ -1,21 +1,66 @@
+# app.py
 import streamlit as st
 import pandas as pd
-from scraping.programacion import obtener_parrilla_web
-from analisis.informes_canal import generar_informe_canal
+import openai
+from io import BytesIO
 
-st.set_page_config(page_title="FormatScope", page_icon="📺")
-st.title("📺 FormatScope: Evaluador Inteligente de Parrilla Televisiva")
+# Clave de API (puedes cargarla desde secrets si usas Streamlit Cloud)
+openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else ""
 
-canales = ["La 1", "La 2", "Antena 3", "Cuatro", "Telecinco", "La Sexta", "Canal Sur", "TV3", "ETB 2", "TVG", "Telemadrid"]
-canal = st.sidebar.selectbox("Selecciona un canal", canales)
+def obtener_informacion(titulo, campo):
+    prompt = f"Proporciona la {campo} del programa de televisión titulado '{titulo}'."
+    try:
+        respuesta = openai.ChatCompletion.create(
+            model="gpt-4",
+            messages=[
+                {"role": "user", "content": prompt}
+            ],
+            temperature=0.7
+        )
+        return respuesta.choices[0].message['content'].strip()
+    except Exception as e:
+        return f"Error al obtener {campo}: {e}"
 
-if st.sidebar.button("🔍 Analizar programación"):
-    df = obtener_parrilla_web(canal)
-    st.write("Contenido del DataFrame devuelto:", df)
-    if df.empty:
-        st.error(f"No se pudo obtener la programación para {canal}.")
-    else:
-        st.success(f"Programación obtenida para {canal}")
+def enriquecer_datos(df):
+    for index, fila in df.iterrows():
+        if pd.isna(fila.get('sinopsis')):
+            df.at[index, 'sinopsis'] = obtener_informacion(fila['titulo'], 'sinopsis')
+        if pd.isna(fila.get('tipo')):
+            df.at[index, 'tipo'] = obtener_informacion(fila['titulo'], 'tipo de programa')
+        if pd.isna(fila.get('primera_emision')):
+            df.at[index, 'primera_emision'] = obtener_informacion(fila['titulo'], 'fecha de primera emisión')
+        if pd.isna(fila.get('audiencia_media')):
+            df.at[index, 'audiencia_media'] = obtener_informacion(fila['titulo'], 'audiencia media estimada')
+    return df
+
+def main():
+    st.title("FormatScope - Enriquecimiento de parrilla televisiva")
+
+    archivo = st.file_uploader("Sube tu archivo 'parrillas_tv.xlsx'", type=["xlsx"])
+
+    if archivo is not None:
+        df = pd.read_excel(archivo)
+        st.write("Vista previa del archivo cargado:")
         st.dataframe(df)
-        st.markdown("### 🧠 Informe de tendencias")
-        st.markdown(generar_informe_canal(df, canal))
+
+        if st.button("Enriquecer datos del archivo"):
+            with st.spinner("Consultando IA para completar campos..."):
+                df_enriquecido = enriquecer_datos(df)
+                st.success("Enriquecimiento completado")
+                st.dataframe(df_enriquecido)
+
+                output = BytesIO()
+                with pd.ExcelWriter(output, engine='xlsxwriter') as writer:
+                    df_enriquecido.to_excel(writer, index=False, sheet_name='Parrilla Enriquecida')
+                    writer.save()
+                    output.seek(0)
+
+                st.download_button(
+                    label="Descargar archivo enriquecido",
+                    data=output,
+                    file_name="parrillas_enriquecidas.xlsx",
+                    mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+                )
+
+if __name__ == "__main__":
+    main()
