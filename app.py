@@ -3,9 +3,8 @@ import streamlit as st
 import pandas as pd
 from openai import OpenAI
 from io import BytesIO
-import os
 
-# Clave de API desde secretos
+# Cargar clave de OpenAI desde secretos de Streamlit
 api_key = st.secrets["OPENAI_API_KEY"]
 client = OpenAI(api_key=api_key)
 
@@ -60,17 +59,16 @@ def analizar_oportunidades(df):
 
 def main():
     st.title("📺 FormatScope")
+    st.subheader("Analiza parrillas y sugiere contenidos")
 
     archivo = st.file_uploader("Sube tu archivo 'parrillas_tv.xlsx'", type=["xlsx"])
 
     if archivo is not None:
-            df = pd.read_excel(archivo)
-        st.subheader("Analiza parrillas y sugiere contenidos")
-st.subheader("Analiza parrillas y sugiere contenidos")
-st.write("Vista previa del archivo cargado:")
-st.dataframe(df)
+        df = pd.read_excel(archivo)
+        st.write("Vista previa del archivo cargado:")
+        st.dataframe(df)
 
-            if st.button("Enriquecer datos del archivo"):
+        if st.button("Enriquecer datos del archivo"):
             with st.spinner("Consultando IA para completar campos..."):
                 df_enriquecido = enriquecer_datos(df)
                 st.success("Enriquecimiento completado")
