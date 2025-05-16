@@ -60,13 +60,13 @@ def analizar_oportunidades(df):
 
 def main():
     st.title("📺 FormatScope")
-    st.subheader("Analiza parrillas y sugiere contenidos")
 
     archivo = st.file_uploader("Sube tu archivo 'parrillas_tv.xlsx'", type=["xlsx"])
 
     if archivo is not None:
         df = pd.read_excel(archivo)
-        st.write("Vista previa del archivo cargado:")
+        st.subheader("Analiza parrillas y sugiere contenidos")
+st.write("Vista previa del archivo cargado:")
         st.dataframe(df)
 
         if st.button("Enriquecer datos del archivo"):
