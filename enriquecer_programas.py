@@ -5,7 +5,7 @@ import openai
 from io import BytesIO
 
 # Clave de API (reemplázala por la tuya o usa st.secrets si estás en Streamlit Cloud)
-openai.api_key = "TU_CLAVE_AQUI"
+openai.api_key = "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"
 
 def obtener_informacion(titulo, campo):
     prompt = f"Proporciona la {campo} del programa de televisión titulado '{titulo}'."
