@@ -64,13 +64,13 @@ def main():
     archivo = st.file_uploader("Sube tu archivo 'parrillas_tv.xlsx'", type=["xlsx"])
 
     if archivo is not None:
-        df = pd.read_excel(archivo)
+            df = pd.read_excel(archivo)
         st.subheader("Analiza parrillas y sugiere contenidos")
 st.subheader("Analiza parrillas y sugiere contenidos")
 st.write("Vista previa del archivo cargado:")
 st.dataframe(df)
 
-        if st.button("Enriquecer datos del archivo"):
+            if st.button("Enriquecer datos del archivo"):
             with st.spinner("Consultando IA para completar campos..."):
                 df_enriquecido = enriquecer_datos(df)
                 st.success("Enriquecimiento completado")
