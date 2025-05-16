@@ -3,22 +3,21 @@ import streamlit as st
 import pandas as pd
 from openai import OpenAI
 from io import BytesIO
+import os
 
-# Clave de API (usa secrets en Streamlit Cloud)
-openai.api_key = st.secrets["OPENAI_API_KEY"] if "OPENAI_API_KEY" in st.secrets else ""
+# Clave de API desde secretos
+api_key = st.secrets["OPENAI_API_KEY"]
+client = OpenAI(api_key=api_key)
 
 def obtener_informacion(titulo, campo):
     prompt = f"Proporciona la {campo} del programa de televisión titulado '{titulo}'."
     try:
-
-client = OpenAI(api_key=openai.api_key)
-
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[{"role": "user", "content": prompt}],
-    temperature=0.7
-)
-return response.choices[0].message.content.strip()
+        response = client.chat.completions.create(
+            model="gpt-4",
+            messages=[{"role": "user", "content": prompt}],
+            temperature=0.7
+        )
+        return response.choices[0].message.content.strip()
     except Exception as e:
         return f"Error al obtener {campo}: {e}"
 
