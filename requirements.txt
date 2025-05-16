@@ -1,5 +1,5 @@
 streamlit
-openai==0.28
 pandas
-xlsxwriter
 openpyxl
+xlsxwriter
+openai>=1.2.4
