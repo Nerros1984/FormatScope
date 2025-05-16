@@ -66,7 +66,8 @@ def main():
     if archivo is not None:
         df = pd.read_excel(archivo)
         st.subheader("Analiza parrillas y sugiere contenidos")
-st.write("Vista previa del archivo cargado:")
+st.subheader("Analiza parrillas y sugiere contenidos")
+        st.write("Vista previa del archivo cargado:")
         st.dataframe(df)
 
         if st.button("Enriquecer datos del archivo"):
