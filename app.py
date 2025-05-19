@@ -1,57 +1,62 @@
 import streamlit as st
-import plotly.graph_objects as go
-from binance.client import Client
 import pandas as pd
+import plotly.graph_objects as go
+import requests
 import time
+from datetime import datetime
 
-# Leer claves desde secrets
-api_key = st.secrets["binance"]["api_key"]
-api_secret = st.secrets["binance"]["api_secret"]
+st.set_page_config(page_title="Velas Japonesas en Tiempo Real", layout="wide")
 
-# Inicializar cliente de Binance
-client = Client(api_key, api_secret)
-
-# Configuración de la página
-st.set_page_config(page_title="Seguimiento Velas Japonesas en Tiempo Real", layout="wide")
+# === Configuración inicial ===
 st.title("📉 Seguimiento Velas Japonesas en Tiempo Real")
+SYMBOL = "ETHUSDT"
+INTERVAL = "1m"
+LIMIT = 50
 
-symbol = "ETHUSDT"
-st.subheader(f"Estrategia Velas - {symbol}")
+# === Obtener datos públicos desde Binance ===
+@st.cache_data(ttl=1)
+def obtener_datos_binance():
+    url = f"https://api.binance.com/api/v3/klines?symbol={SYMBOL}&interval={INTERVAL}&limit={LIMIT}"
+    response = requests.get(url)
+    if response.status_code == 200:
+        data = response.json()
+        df = pd.DataFrame(data, columns=[
+            'time', 'open', 'high', 'low', 'close', 'volume',
+            'close_time', 'quote_asset_volume', 'number_of_trades',
+            'taker_buy_base_asset_volume', 'taker_buy_quote_asset_volume', 'ignore'
+        ])
+        df = df[['time', 'open', 'high', 'low', 'close']].astype(float)
+        df['time'] = pd.to_datetime(df['time'], unit='ms')
+        return df
+    else:
+        return None
 
+# === Mostrar gráfico de velas japonesas ===
+def mostrar_grafico(df):
+    fig = go.Figure(data=[go.Candlestick(
+        x=df['time'],
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        increasing_line_color='green',
+        decreasing_line_color='red',
+        name='ETH/USDT'
+    )])
+    fig.update_layout(title='Velas Japonesas ETH/USDT', xaxis_title='Hora', yaxis_title='Precio')
+    st.plotly_chart(fig, use_container_width=True)
+
+# === Loop de actualización automática ===
 placeholder = st.empty()
 
 while True:
     with placeholder.container():
-        try:
-            # Obtener datos de velas
-            klines = client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_1MINUTE, limit=30)
+        df = obtener_datos_binance()
+        if df is not None and not df.empty:
+            mostrar_grafico(df)
+            st.success("✅ Datos en tiempo real actualizados.")
+        else:
+            st.error("❌ Error al obtener datos desde Binance (público)")
 
-            df = pd.DataFrame(klines, columns=[
-                "timestamp", "open", "high", "low", "close", "volume",
-                "close_time", "quote_asset_volume", "number_of_trades",
-                "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
-            ])
-
-            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-            df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]].astype(float)
-
-            # Crear gráfico de velas
-            fig = go.Figure(data=[
-                go.Candlestick(
-                    x=df["timestamp"],
-                    open=df["open"],
-                    high=df["high"],
-                    low=df["low"],
-                    close=df["close"],
-                    increasing_line_color='green', decreasing_line_color='red'
-                )
-            ])
-
-            fig.update_layout(title=f"Velas Japonesas {symbol}", xaxis_title="Hora", yaxis_title="Precio")
-            st.plotly_chart(fig, use_container_width=True)
-            st.markdown("<p style='color: gray;'>🕒 Actualizando cada segundo...</p>", unsafe_allow_html=True)
-
-        except Exception as e:
-            st.error(f"❌ No se pudo cargar el gráfico. Verifica la conexión o vuelve a intentarlo.\n{e}")
-
-    time.sleep(1)
+        st.caption("⏳ Actualizando cada segundo...")
+        time.sleep(1)
