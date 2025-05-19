@@ -1,6 +1,5 @@
 streamlit
-pandas
-numpy
-plotly
-python-binance
 requests
+pandas
+plotly
+python-dotenv
