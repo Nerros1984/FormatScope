@@ -1,99 +1,71 @@
+# app.py
 import streamlit as st
 import pandas as pd
-import numpy as np
-import requests
-import time
+import yfinance as yf
 import plotly.graph_objects as go
 from datetime import datetime
 
 st.set_page_config(page_title="Seguimiento RSI en Tiempo Real", layout="wide")
 
-# Función para obtener datos OHLC desde Binance
-def obtener_datos_binance(symbol="ETHUSDT", interval="1m", limit=100):
-    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
-    r = requests.get(url)
-    data = r.json()
+st.markdown("## 📉 Seguimiento RSI en Tiempo Real")
+symbol = st.selectbox("Selecciona el símbolo (cripto):", options=["ETH-USD", "BTC-USD", "ADA-USD"], index=0)
 
-    df = pd.DataFrame(data, columns=[
-        "timestamp", "open", "high", "low", "close", "volume",
-        "close_time", "quote_asset_volume", "number_of_trades",
-        "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
-    ])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df["close"] = df["close"].astype(float)
-    return df[["timestamp", "close"]]
+# Carga de datos en tiempo real
+@st.cache_data(ttl=60)
+def cargar_datos(symbol):
+    try:
+        df = yf.download(tickers=symbol, interval="1m", period="1d", progress=False)
+        df = df[["Close"]].copy()
+        df.reset_index(inplace=True)
+        df.rename(columns={"Close": "Precio", "Datetime": "timestamp"}, inplace=True)
+        df["timestamp"] = pd.to_datetime(df["timestamp"])
+        return df
+    except Exception as e:
+        st.error(f"Error al cargar datos: {e}")
+        return pd.DataFrame()
 
-# Cálculo de RSI
-def calcular_rsi(series, periodo=14):
-    delta = series.diff()
-    ganancia = np.where(delta > 0, delta, 0)
-    perdida = np.where(delta < 0, -delta, 0)
+df = cargar_datos(symbol)
 
-    ganancia_ema = pd.Series(ganancia).ewm(span=periodo, adjust=False).mean()
-    perdida_ema = pd.Series(perdida).ewm(span=periodo, adjust=False).mean()
+# Validación
+if df.empty or len(df) < 15:
+    st.warning("⚠️ No se han encontrado suficientes datos para mostrar el gráfico.")
+    st.stop()
 
-    rs = ganancia_ema / perdida_ema
-    rsi = 100 - (100 / (1 + rs))
-    return rsi
-
-# Detección de señales
-def detectar_senales(df, rsi):
-    señales = []
-    for i in range(1, len(rsi)):
-        if rsi[i-1] < 30 and rsi[i] >= 30:
-            señales.append(("BUY", df["timestamp"].iloc[i], df["close"].iloc[i]))
-        elif rsi[i-1] > 70 and rsi[i] <= 70:
-            señales.append(("SELL", df["timestamp"].iloc[i], df["close"].iloc[i]))
-    return señales
-
-# Título
-st.title("📈 Seguimiento RSI en Tiempo Real")
-
-# Selector de símbolo (de momento ETH-USDT fijo)
-simbolo = st.selectbox("Selecciona el símbolo (cripto):", ["ETHUSDT"])
-
-# Obtener y procesar datos
-df = obtener_datos_binance(simbolo)
-rsi = calcular_rsi(df["close"])
+# RSI
+delta = df["Precio"].diff()
+ganancia = delta.where(delta > 0, 0)
+perdida = -delta.where(delta < 0, 0)
+media_ganancia = ganancia.rolling(window=14).mean()
+media_perdida = perdida.rolling(window=14).mean()
+rs = media_ganancia / media_perdida
+rsi = 100 - (100 / (1 + rs))
 df["RSI"] = rsi
 
-# Detectar señales
-senales = detectar_senales(df, rsi)
+# Señales
+df["señal"] = ""
+df.loc[df["RSI"] < 30, "señal"] = "compra"
+df.loc[df["RSI"] > 70, "señal"] = "venta"
 
-# Gráfico principal
-fig = go.Figure()
-fig.add_trace(go.Scatter(x=df["timestamp"], y=df["close"], mode="lines", name="Precio", line=dict(color="deepskyblue")))
+# === GRÁFICO PRECIO ===
+fig_precio = go.Figure()
+fig_precio.add_trace(go.Scatter(x=df["timestamp"], y=df["Precio"], mode="lines", name="Precio", line=dict(color="blue")))
 
-for tipo, fecha, precio in senales:
-    color = "green" if tipo == "BUY" else "red"
-    fig.add_trace(go.Scatter(x=[fecha], y=[precio],
-                             mode="markers+text",
-                             name=tipo,
-                             text=[tipo],
-                             textposition="top center",
-                             marker=dict(color=color, size=10)))
+# Marcar señales
+compra = df[df["señal"] == "compra"]
+venta = df[df["señal"] == "venta"]
 
-fig.update_layout(title=f"Estrategia RSI - {simbolo}",
-                  xaxis_title="Hora",
-                  yaxis_title="Precio USDT",
-                  height=500)
+fig_precio.add_trace(go.Scatter(x=compra["timestamp"], y=compra["Precio"], mode="markers", name="COMPRA", marker=dict(color="green", symbol="triangle-up", size=10)))
+fig_precio.add_trace(go.Scatter(x=venta["timestamp"], y=venta["Precio"], mode="markers", name="VENTA", marker=dict(color="red", symbol="triangle-down", size=10)))
 
-st.plotly_chart(fig, use_container_width=True)
+fig_precio.update_layout(title=f"Estrategia RSI - {symbol}", xaxis_title="Fecha", yaxis_title="Precio")
 
-# Gráfico de RSI
+# === GRÁFICO RSI ===
 fig_rsi = go.Figure()
 fig_rsi.add_trace(go.Scatter(x=df["timestamp"], y=df["RSI"], mode="lines", name="RSI", line=dict(color="orange")))
-fig_rsi.add_shape(type="line", x0=df["timestamp"].iloc[0], x1=df["timestamp"].iloc[-1],
-                  y0=70, y1=70, line=dict(color="red", dash="dash"))
-fig_rsi.add_shape(type="line", x0=df["timestamp"].iloc[0], x1=df["timestamp"].iloc[-1],
-                  y0=30, y1=30, line=dict(color="green", dash="dash"))
-fig_rsi.update_layout(title="Indicador RSI",
-                      xaxis_title="Hora",
-                      yaxis_title="RSI",
-                      height=300)
+fig_rsi.add_shape(type="line", x0=df["timestamp"].iloc[0], x1=df["timestamp"].iloc[-1], y0=70, y1=70, line=dict(dash="dash", color="red"))
+fig_rsi.add_shape(type="line", x0=df["timestamp"].iloc[0], x1=df["timestamp"].iloc[-1], y0=30, y1=30, line=dict(dash="dash", color="green"))
+fig_rsi.update_layout(title="Indicador RSI", xaxis_title="Fecha", yaxis_title="RSI")
 
+# === VISUALIZACIÓN ===
+st.plotly_chart(fig_precio, use_container_width=True)
 st.plotly_chart(fig_rsi, use_container_width=True)
-
-# Refrescar automáticamente cada 5 segundos
-st.experimental_rerun() if st.button("🔁 Refrescar ahora") else time.sleep(5)
-st.experimental_rerun()
