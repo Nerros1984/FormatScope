@@ -1,61 +1,60 @@
 import streamlit as st
 import pandas as pd
 import requests
-import time
 import plotly.graph_objects as go
 from datetime import datetime
+import time
 
-# Configuracion inicial
-st.set_page_config(page_title="Seguimiento Velas Japonesas en Tiempo Real", layout="wide")
-st.title("📉 Seguimiento Velas Japonesas en Tiempo Real")
+st.set_page_config(page_title="Seguimiento ETHUSD en Tiempo Real", layout="wide")
+st.title("📈 Seguimiento Velas Japonesas en Tiempo Real")
 
-symbol = st.selectbox("Selecciona el símbolo (cripto):", ["ETHEUR", "BTCUSDT", "ETHUSDT"])
+# Solo trabajaremos con este símbolo
+symbol = "ETHUSDT"
+st.markdown(f"### Estrategia Velas - {symbol}")
 
-st.markdown(f"### Estrategia Velas - {symbol.upper()}")
-status = st.empty()
-chart = st.empty()
-
-# Funcion para obtener velas sin autenticar
-def obtener_velas_binance(symbol="ETHEUR", interval="1m", limit=100):
-    url = f"https://api.binance.com/api/v3/klines"
-    params = {
-        "symbol": symbol.upper(),
-        "interval": interval,
-        "limit": limit
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
+# Cargar los datos
+@st.cache_data(ttl=60)
+def obtener_datos_binance(symbol="ETHUSDT", interval="1m", limit=100):
+    url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
+    try:
+        response = requests.get(url)
         data = response.json()
         df = pd.DataFrame(data, columns=[
-            "open_time", "open", "high", "low", "close", "volume",
+            "timestamp", "open", "high", "low", "close", "volume",
             "close_time", "quote_asset_volume", "number_of_trades",
-            "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"])
-        df["timestamp"] = pd.to_datetime(df["open_time"], unit="ms")
+            "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["open"] = df["open"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
         df["close"] = df["close"].astype(float)
-        return df[["timestamp", "close"]]
-    else:
+
+        return df[["timestamp", "open", "high", "low", "close"]]
+    except Exception as e:
+        st.error(f"❌ Error al obtener datos desde Binance: {e}")
         return pd.DataFrame()
 
-# Bucle de actualizacion
-while True:
-    status.info("🔄 Cargando datos en tiempo real...")
+with st.spinner("⏳ Cargando datos en tiempo real..."):
+    df = obtener_datos_binance(symbol)
 
-    df = obtener_velas_binance(symbol)
-
-    if df.empty:
-        status.error("❌ Error al obtener datos desde Binance (público)")
-        break
-
-    # Grafico de precio
+if not df.empty:
     fig = go.Figure()
-    fig.add_trace(go.Scatter(x=df["timestamp"], y=df["close"], mode="lines+markers", name="Precio"))
+    fig.add_trace(go.Candlestick(
+        x=df['timestamp'],
+        open=df['open'],
+        high=df['high'],
+        low=df['low'],
+        close=df['close'],
+        name="ETHUSDT"
+    ))
     fig.update_layout(
-        xaxis_title="Hora",
+        title=f"Velas Japonesas - {symbol}",
+        xaxis_title="Fecha",
         yaxis_title="Precio",
-        showlegend=True,
-        height=500
+        xaxis_rangeslider_visible=False,
+        height=600
     )
-
-    chart.plotly_chart(fig, use_container_width=True)
-    status.success("✅ Datos actualizados")
-    time.sleep(5)  # Actualiza cada 5 segundos
+    st.plotly_chart(fig, use_container_width=True)
+else:
+    st.error("❌ No se pudo cargar el gráfico. Verifica la conexión o vuelve a intentarlo.")
