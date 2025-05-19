@@ -1,52 +1,57 @@
 import streamlit as st
-import requests
-import pandas as pd
 import plotly.graph_objects as go
+from binance.client import Client
+import pandas as pd
 import time
-from datetime import datetime
-import os
 
-# --- Configuración general ---
-st.set_page_config(page_title="Velas Japonesas", page_icon="📉", layout="wide")
+# Leer claves desde secrets
+api_key = st.secrets["binance"]["api_key"]
+api_secret = st.secrets["binance"]["api_secret"]
+
+# Inicializar cliente de Binance
+client = Client(api_key, api_secret)
+
+# Configuración de la página
+st.set_page_config(page_title="Seguimiento Velas Japonesas en Tiempo Real", layout="wide")
 st.title("📉 Seguimiento Velas Japonesas en Tiempo Real")
-st.subheader("Estrategia Velas - ETHUSDT")
 
-# --- API Key desde variable de entorno (o directamente si prefieres) ---
-API_KEY = os.getenv("CRYPTOCOMPARE_API_KEY") or "321df943198bbf65ed2e1043a50321d128519bd0fdefbd855bfe5d2e0b3b60fb"
+symbol = "ETHUSDT"
+st.subheader(f"Estrategia Velas - {symbol}")
 
-def obtener_velas(symbol="ETH", currency="USD", limit=30):
-    url = f"https://min-api.cryptocompare.com/data/v2/histominute?fsym={symbol}&tsym={currency}&limit={limit}&api_key={API_KEY}"
-    response = requests.get(url)
-    data = response.json()
-    if data["Response"] != "Success":
-        return None
-
-    df = pd.DataFrame(data["Data"]["Data"])
-    df["datetime"] = pd.to_datetime(df["time"], unit="s")
-    return df
-
-# --- Bucle de actualización ---
 placeholder = st.empty()
 
 while True:
-    df = obtener_velas()
-    if df is None or df.empty:
-        st.error("❌ No se pudo cargar el gráfico. Verifica la conexión o vuelve a intentarlo.")
-        break
-
     with placeholder.container():
-        st.markdown("⏱️ *Actualizando cada segundo...*")
+        try:
+            # Obtener datos de velas
+            klines = client.get_klines(symbol=symbol, interval=Client.KLINE_INTERVAL_1MINUTE, limit=30)
 
-        fig = go.Figure(data=[go.Candlestick(
-            x=df["datetime"],
-            open=df["open"],
-            high=df["high"],
-            low=df["low"],
-            close=df["close"],
-            increasing_line_color='green',
-            decreasing_line_color='red'
-        )])
-        fig.update_layout(title="Velas Japonesas ETH/USD", xaxis_title="Hora", yaxis_title="Precio", height=600)
-        st.plotly_chart(fig, use_container_width=True)
+            df = pd.DataFrame(klines, columns=[
+                "timestamp", "open", "high", "low", "close", "volume",
+                "close_time", "quote_asset_volume", "number_of_trades",
+                "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
+            ])
+
+            df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+            df[["open", "high", "low", "close"]] = df[["open", "high", "low", "close"]].astype(float)
+
+            # Crear gráfico de velas
+            fig = go.Figure(data=[
+                go.Candlestick(
+                    x=df["timestamp"],
+                    open=df["open"],
+                    high=df["high"],
+                    low=df["low"],
+                    close=df["close"],
+                    increasing_line_color='green', decreasing_line_color='red'
+                )
+            ])
+
+            fig.update_layout(title=f"Velas Japonesas {symbol}", xaxis_title="Hora", yaxis_title="Precio")
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown("<p style='color: gray;'>🕒 Actualizando cada segundo...</p>", unsafe_allow_html=True)
+
+        except Exception as e:
+            st.error(f"❌ No se pudo cargar el gráfico. Verifica la conexión o vuelve a intentarlo.\n{e}")
 
     time.sleep(1)
