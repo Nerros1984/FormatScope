@@ -1,76 +1,76 @@
+# app.py
+
 import streamlit as st
 import pandas as pd
-import numpy as np
 import plotly.graph_objects as go
+from datetime import datetime
 from binance.client import Client
-from datetime import datetime, timedelta
-import pytz
+import os
+import time
 
-# Configurar API de Binance
-API_KEY = "VexjaLA4Xtx5zAW0qQ8K9NsD9CAd18TVWA3PzMAD0aknEH4I7jdhkpOkVZeSnpWJ"
-API_SECRET = "KSrlsfavMrFXtWvST5o3XnW0qaCpKHGk6qJ5bJbslQYv1S9uJtuGoeTI7jkzZPzj"
-client = Client(API_KEY, API_SECRET)
+# Autorefresco cada 10 segundos
+st.set_page_config(page_title="Seguimiento RSI en Tiempo Real", layout="wide")
 
-# Configurar la app
-st.set_page_config(page_title="Seguimiento RSI", layout="wide")
-st.title("📉 Seguimiento RSI en Tiempo Real")
+st.title("📉 Seguimiento Velas Japonesas en Tiempo Real")
 
-# Seleccionar símbolo
-symbol = st.selectbox("Selecciona el símbolo (cripto):", ["ETHUSDT", "BTCUSDT", "BNBUSDT"])
+# Conexión con Binance
+api_key = os.getenv("BINANCE_API_KEY", "VexjaLA4Xtx5zAW0qQ8K9NsD9CAd18TVWA3PzMAD0aknEH4I7jdhkpOkVZeSnpWJ")
+api_secret = os.getenv("BINANCE_API_SECRET", "KSrlsfavMrFXtWvST5o3XnW0qaCpKHGk6qJ5bJbslQYv1S9uJtuGoeTI7jkzZPzj")
+client = Client(api_key, api_secret)
 
-# Obtener datos recientes (última hora, velas de 1 minuto)
-def obtener_datos(symbol):
-    now = datetime.utcnow()
-    past = now - timedelta(hours=1)
-    klines = client.get_historical_klines(symbol, Client.KLINE_INTERVAL_1MINUTE, past.strftime("%d %b %Y %H:%M:%S"))
-    df = pd.DataFrame(klines, columns=[
-        "timestamp", "open", "high", "low", "close", "volume",
-        "close_time", "quote_asset_volume", "num_trades",
-        "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
-    ])
-    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
-    df["timestamp"] = df["timestamp"].dt.tz_localize("UTC").dt.tz_convert("Europe/Madrid")
-    df["close"] = pd.to_numeric(df["close"])
-    return df
+# Selección de símbolo
+symbol = st.selectbox("Selecciona el símbolo (cripto)", ["ETHEUR", "ETHUSDT", "BTCUSDT"], index=0)
 
-# Calcular RSI
-def calcular_rsi(df, periodo=14):
-    delta = df["close"].diff()
-    ganancia = delta.where(delta > 0, 0)
-    perdida = -delta.where(delta < 0, 0)
-    media_ganancia = ganancia.rolling(window=periodo).mean()
-    media_perdida = perdida.rolling(window=periodo).mean()
-    rs = media_ganancia / media_perdida
-    rsi = 100 - (100 / (1 + rs))
-    df["rsi"] = rsi
-    return df
+# Parámetros de velas
+interval = Client.KLINE_INTERVAL_1MINUTE
+limit = 100
 
-# Dibujar gráficos
-def mostrar_graficos(df):
-    fig_precio = go.Figure()
-    fig_precio.add_trace(go.Scatter(x=df["timestamp"], y=df["close"], mode="lines", name="Precio"))
+# Obtener datos de Binance
+@st.cache_data(ttl=10)
+def obtener_datos_binance():
+    try:
+        klines = client.get_klines(symbol=symbol, interval=interval, limit=limit)
+        df = pd.DataFrame(klines, columns=[
+            "timestamp", "open", "high", "low", "close", "volume", 
+            "close_time", "quote_asset_volume", "number_of_trades", 
+            "taker_buy_base_volume", "taker_buy_quote_volume", "ignore"
+        ])
+        df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+        df["open"] = df["open"].astype(float)
+        df["high"] = df["high"].astype(float)
+        df["low"] = df["low"].astype(float)
+        df["close"] = df["close"].astype(float)
+        return df
+    except Exception as e:
+        st.error(f"❌ Error al obtener datos: {e}")
+        return pd.DataFrame()
 
-    # RSI con líneas de sobrecompra y sobreventa
-    fig_rsi = go.Figure()
-    fig_rsi.add_trace(go.Scatter(x=df["timestamp"], y=df["rsi"], line=dict(color='orange'), name="RSI"))
-    fig_rsi.add_hline(y=70, line_dash="dash", line_color="red")
-    fig_rsi.add_hline(y=30, line_dash="dash", line_color="green")
+df = obtener_datos_binance()
 
-    st.subheader(f"Estrategia RSI - {symbol}")
-    st.plotly_chart(fig_precio, use_container_width=True)
-    st.subheader("Indicador RSI")
-    st.plotly_chart(fig_rsi, use_container_width=True)
+if not df.empty:
+    # Gráfico de velas japonesas
+    fig = go.Figure(data=[go.Candlestick(
+        x=df["timestamp"],
+        open=df["open"],
+        high=df["high"],
+        low=df["low"],
+        close=df["close"],
+        name="Precio"
+    )])
+    fig.update_layout(title=f"Velas Japonesas - {symbol}", xaxis_title="Fecha", yaxis_title="Precio")
+    st.plotly_chart(fig, use_container_width=True)
 
-# Ejecutar lógica de actualización
-try:
-    df = obtener_datos(symbol)
-    df = calcular_rsi(df)
-    if not df.empty:
-        mostrar_graficos(df)
-    else:
-        st.warning("No hay datos disponibles para mostrar el gráfico.")
-except Exception as e:
-    st.error(f"Error al obtener o procesar los datos: {e}")
+    # Detección de patrón básico: 3 picos ascendentes
+    ultimos_cierres = df["close"].tail(5).values
+    if len(ultimos_cierres) >= 3:
+        if ultimos_cierres[-3] < ultimos_cierres[-2] < ultimos_cierres[-1]:
+            st.success("✅ Señal de COMPRA: patrón de 3 cierres ascendentes detectado.")
+        elif ultimos_cierres[-3] > ultimos_cierres[-2] > ultimos_cierres[-1]:
+            st.warning("⚠️ Señal de VENTA: patrón de 3 cierres descendentes detectado.")
+        else:
+            st.info("ℹ️ Sin señal clara en los últimos 3 minutos.")
+else:
+    st.warning("Esperando datos válidos para mostrar el gráfico...")
 
-# Autorefresco cada 1 segundo (sin botón manual)
+# Forzar actualización automática cada 10 segundos
 st.experimental_rerun()
